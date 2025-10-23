@@ -16,17 +16,14 @@ Built with **Python 3.11+** and **PyQt6**, TrayNSLookup lets you perform DNS que
 - 🪄 **System tray integration**
   - Left-click to open the window
   - Right-click menu with options: *Open*, *Manage DNS Servers*, *Quit*
-- 🖼️ **Embedded icons** (no external files needed)
-  - Uses `TrayNSLookup.ico` for the app and tray icon
-  - Uses `gear.ico` for the DNS settings button
-  - Falls back to a 🔍 emoji icon if not found
-
+  
 ---
 
 ## 📂 Project Structure
 
 ```
 TrayNSLookup/
+├── build.ps1               # build script to create a stand alone EXE file
 │
 ├── TrayNSLookup/
 │   ├── __init__.py
