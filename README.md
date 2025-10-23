@@ -73,21 +73,31 @@ python TrayNSLookup/main.py
 
 ---
 
-## 🧰 Packaging with PyInstaller
+## 🧰 Packaging with `build.ps1`
 
-Build a standalone Windows `.exe` with embedded icons:
+The `build.ps1` script automates the entire packaging process.
 
-```bash
-pyinstaller --onefile --windowed TrayNSLookup/main.py ^
-  --add-data "TrayNSLookup/icons;icons" ^
-  --icon TrayNSLookup/icons/TrayNSLookup.ico ^
-  --name TrayNSLookup
+Run this from **PowerShell** at the project root:
+```powershell
+.\build.ps1 -AppName TrayNSLookup
 ```
 
-After building, your executable will be in:
-```
-dist/TrayNSLookup.exe
-```
+### What It Does
+1. Automatically detects your project paths.
+2. Cleans old `build/`, `dist/`, `.spec`, and `__pycache__` folders.
+3. Runs PyInstaller to generate a single-file executable:
+   ```powershell
+   pyinstaller --noconfirm --onefile --windowed --add-data "TrayNSLookup/icons;icons" --name TrayWeatherApp --icon ..\TrayWeatherApp.ico main.py
+   ```
+4. Moves the built EXE to the project root.
+5. Runs Inno Setup from:
+   ```
+   build\windows\TrayNSLookup.iss
+   ```
+6. If Inno Setup completes successfully:
+   - Displays the full installer EXE path.
+   - Deletes the standalone EXE from the root folder.
+7. If Inno Setup fails or is skipped, the standalone EXE remains in the project root.
 
 ✅ **Notes**
 - The app’s icons are bundled **inside the EXE**.
@@ -96,17 +106,6 @@ dist/TrayNSLookup.exe
   ```
   C:\Users\<YourName>\.traynslookup_config.json
   ```
-
----
-
-## 🧩 Common Commands
-
-| Action | Command |
-|--------|----------|
-| Run the app | `python -m TrayNSLookup` |
-| Clean PyInstaller build files | `rmdir /s /q build dist` |
-| Create executable | `pyinstaller --onefile --windowed TrayNSLookup/main.py --add-data "TrayNSLookup/icons;icons" --icon TrayNSLookup/icons/TrayNSLookup.ico --name TrayNSLookup` |
-| Run directly from EXE | `dist\TrayNSLookup.exe` |
 
 ---
 
@@ -137,11 +136,4 @@ You can delete this file to reset the app.
 
 - Always run the PyInstaller command from the **project root**.
 - Make sure the `icons/` folder contains `TrayNSLookup.ico` and `gear.ico` before building.
-- The `.spec` file can simplify rebuilding — ask ChatGPT to generate one for you.
-
----
-
-## 📜 License
-
-MIT License © 2025  
-You’re free to modify, use, and distribute TrayNSLookup with attribution.
+- The `.spec` file can simplify rebuilding.
