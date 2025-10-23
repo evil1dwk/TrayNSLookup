@@ -87,7 +87,7 @@ Run this from **PowerShell** at the project root:
 2. Cleans old `build/`, `dist/`, `.spec`, and `__pycache__` folders.
 3. Runs PyInstaller to generate a single-file executable:
    ```powershell
-   pyinstaller --noconfirm --onefile --windowed --add-data "TrayNSLookup/icons;icons" --name TrayWeatherApp --icon ..\TrayWeatherApp.ico main.py
+   pyinstaller --noconfirm --onefile --windowed --add-data "TrayNSLookup/icons;icons" --name TrayWeatherApp --icon ..\TrayNSLookup.ico main.py
    ```
 4. Moves the built EXE to the project root.
 5. Runs Inno Setup from:
