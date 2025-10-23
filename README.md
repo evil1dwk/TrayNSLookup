@@ -102,6 +102,7 @@ Run this from **PowerShell** at the project root:
 ✅ **Notes**
 - The app’s icons are bundled **inside the EXE**.
 - If `TrayNSLookup.ico` is missing, the app automatically falls back to a 🔍 emoji icon.
+- If Inno Setup isn’t found, the script will still produce a standalone EXE.
 - The configuration and lookup history are saved to:
   ```
   C:\Users\<YourName>\.traynslookup_config.json
