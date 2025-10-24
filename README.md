@@ -23,7 +23,8 @@ Built with **Python 3.11+** and **PyQt6**, TrayNSLookup lets you perform DNS que
 
 ```
 TrayNSLookup/
-├── build.ps1               # build script to create a stand alone EXE file
+├── build.py                # build script to create a stand alone EXE file
+├── build.json              # build configuration file
 │
 ├── TrayNSLookup/
 │   ├── __init__.py
