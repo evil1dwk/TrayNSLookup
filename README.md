@@ -161,8 +161,12 @@ You can delete this file to reset the app.
 
 ---
 
-## 🧩 Building Tips
+## ☀️ Summary
 
-- Always run the PyInstaller command from the **project root**.
-- Make sure the `icons/` folder contains `TrayNSLookup.ico` and `gear.ico` before building.
-- The `.spec` file can simplify rebuilding.
+| Action | Command |
+|--------|----------|
+| 🧪 Run app from source | `python -m TrayNSLookup` |
+| 🏗️ Build standalone EXE | `python build.py` |
+| 🧱 Build with full logs | `python build.py --verbose` |
+| 💾 Output | EXE or installer saved in project root |
+| 🧹 Cleanup | Automatic (safe mode, no root deletion) |
