@@ -1,0 +1,14 @@
+{
+  "AppName": "TrayNSLookup",
+  "Version": "1.0.2",
+  "Icon": "$AppName.ico",
+  "pyinstaller": [
+    "--noconfirm",
+    "--onefile",
+    "--windowed",
+    "--add-data", "icons;icons",
+    "--name", "$AppName",
+    "--icon", "$Icon",
+    "main.py"
+  ]
+}
