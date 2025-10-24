@@ -161,6 +161,18 @@ You can delete this file to reset the app.
 
 ---
 
+## 💡 Building Tips
+
+- Always run the build command from the **project root**
+- Ensure your `.ico` file exists in the root (e.g., `TrayNSLookup.ico`)
+- If debugging build issues, run:
+  ```bash
+  python build.py --verbose
+  ```
+- You can modify `build.json` to add extra PyInstaller options as needed
+
+---
+
 ## ☀️ Summary
 
 | Action | Command |
