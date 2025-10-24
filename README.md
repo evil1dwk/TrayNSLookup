@@ -38,7 +38,7 @@ TrayNSLookup/
 │   └── icons/
 │       ├── TrayNSLookup.ico
 │       └── gear.ico
-│
+├── TrayNSLookup.ico       # app icon
 ├── requirements.txt
 └── README.md
 ```
