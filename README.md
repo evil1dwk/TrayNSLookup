@@ -1,4 +1,4 @@
-# 📘 TrayNSLookup
+# 🔍 TrayNSLookup
 
 A lightweight DNS lookup utility for Windows that lives in the system tray.  
 Built with **Python 3.11+** and **PyQt6**, TrayNSLookup lets you perform DNS queries instantly — right from your desktop — with a persistent lookup history.
