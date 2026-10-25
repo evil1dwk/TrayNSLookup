@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [1.2.0] — proposed
+## [1.2.0] — 2026-10-25
 
 - Automatically convert IPv4 and IPv6 input into PTR reverse lookups.
 - Show record names, types, values, and TTLs in tables with responding server
