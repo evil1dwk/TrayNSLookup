@@ -72,6 +72,7 @@ class MainWindow(QMainWindow):
         self.compare_menu = QMenu(self)
         self.choose_servers_button = QToolButton()
         self.choose_servers_button.setText("Select servers")
+        self.choose_servers_button.setFixedWidth(220)
         self.choose_servers_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.choose_servers_button.setMenu(self.compare_menu)
         self._reload_compare_servers()
@@ -154,6 +155,8 @@ class MainWindow(QMainWindow):
         else:
             label = f'{len(selected)} servers selected'
         self.choose_servers_button.setText(label)
+        self.choose_servers_button.setToolTip(
+            "\n".join(server or "System default" for server in selected) or "Select one or more DNS servers")
         save_config(self.cfg)
 
     def _clear_results(self):

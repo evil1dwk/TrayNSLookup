@@ -151,3 +151,13 @@ class MainWindowTests(unittest.TestCase):
         restored = MainWindow(self.cfg, lambda servers: None)
         self.assertFalse(any(a.isChecked() for a in restored.server_actions))
         restored.close()
+
+    def test_server_selector_width_stays_fixed(self):
+        self.window.show()
+        self.app.processEvents()
+        width = self.window.choose_servers_button.width()
+        for selected in ([], [None], ['1.1.1.1'], [None, '1.1.1.1']):
+            for action in self.window.server_actions:
+                action.setChecked(action.data() in selected)
+            self.app.processEvents()
+            self.assertEqual(self.window.choose_servers_button.width(), width)
