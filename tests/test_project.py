@@ -20,9 +20,9 @@ class ProjectTests(unittest.TestCase):
             self.assertTrue(resources.files("traynslookup").joinpath("assets", icon).is_file())
             self.assertTrue(config._find_icon(icon).is_file())
 
-    def test_legacy_entry_point(self):
+    def test_module_entry_point(self):
         from traynslookup.main import main
-        self.assertIs(importlib.import_module("TrayNSLookup").main, main)
+        self.assertIs(importlib.import_module("traynslookup.__main__").main, main)
 
     def test_config_round_trip_and_defaults(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -43,7 +43,7 @@ class ProjectTests(unittest.TestCase):
                 os.chdir(folder)
                 for platform in ("windows", "linux"):
                     command = build_command(platform)
-                    self.assertEqual(command[-1], str(ROOT / "main.py"))
+                    self.assertEqual(command[-1], str(ROOT / "traynslookup" / "__main__.py"))
                     self.assertIn(str(ROOT / "dist" / platform), command)
                     self.assertIn(str(ROOT / "traynslookup" / "assets") + ":traynslookup/assets", command)
         finally:

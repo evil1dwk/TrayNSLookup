@@ -9,8 +9,8 @@ python -m unittest discover -s tests -v
 python scripts/build.py
 ```
 
-`python build.py` remains a compatibility command. Both commands resolve source
-and asset paths relative to the repository, so the build script can also be run
+The build script resolves source and asset paths relative to the repository,
+so it can also be run
 by absolute path from another directory. Full build logs are shown by default;
 `--verbose` remains accepted.
 

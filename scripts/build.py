@@ -23,7 +23,7 @@ def build_command(platform, config=None):
                 "--add-data", str(ROOT / "traynslookup" / "assets") + ":traynslookup/assets"]
     if platform == "windows":
         command += ["--icon", str(ROOT / "traynslookup" / "assets" / "TrayNSLookup.ico")]
-    command.append(str(ROOT / "main.py"))
+    command.append(str(ROOT / "traynslookup" / "__main__.py"))
     return command
 
 
