@@ -51,3 +51,16 @@ class MainWindowTests(unittest.TestCase):
             worker.return_value.start.assert_called_once()
         self.assertIs(self.window.tabs.currentWidget(), self.window.lookup_tab)
         self.assertIn('Querying example.com', self.window.results.toPlainText())
+
+    def test_about_button_opens_versioned_dialog(self):
+        from traynslookup.version import __version__
+        self.window.about_button.click()
+        dialog = self.window._about_dialog
+        self.assertTrue(dialog.isVisible())
+        self.assertIn(__version__, dialog.title_label.text())
+        self.assertIs(dialog.parentWidget(), self.window)
+        self.assertTrue(dialog.links_label.openExternalLinks())
+        self.window.about_button.click()
+        self.assertIs(self.window._about_dialog, dialog)
+        dialog.accept()
+        self.assertFalse(dialog.isVisible())

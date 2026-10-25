@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton
+    QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
 from .config import get_app_icon
@@ -52,3 +52,38 @@ class ManageDNSServersDialog(QDialog):
             for i in range(self.list_widget.count())
             if self.list_widget.item(i).text().strip()
         ]
+
+
+class AboutDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.WindowType.Dialog)
+        from .version import __version__
+        self.setWindowTitle("About TrayNSLookup")
+        self.setWindowIcon(get_app_icon())
+        self.setMinimumWidth(450)
+        layout = QVBoxLayout(self)
+        body = QHBoxLayout()
+        icon = QLabel(self)
+        icon.setPixmap(get_app_icon().pixmap(64, 64))
+        icon.setFixedSize(72, 72)
+        icon.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        body.addWidget(icon)
+        details = QVBoxLayout()
+        self.title_label = QLabel(f"<b>TrayNSLookup {__version__}</b>", self)
+        font = self.title_label.font()
+        font.setPointSize(font.pointSize() + 3)
+        self.title_label.setFont(font)
+        details.addWidget(self.title_label)
+        details.addWidget(QLabel("A desktop DNS lookup utility with system tray integration.", self))
+        details.addWidget(QLabel("Created by evil1dwk", self))
+        self.links_label = QLabel(
+            '<a href="https://github.com/evil1dwk/TrayNSLookup">GitHub repository</a>  '
+            '<a href="https://github.com/evil1dwk/TrayNSLookup/issues">Report an issue</a>', self)
+        self.links_label.setOpenExternalLinks(True)
+        self.links_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        details.addWidget(self.links_label)
+        body.addLayout(details)
+        layout.addLayout(body)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok, self)
+        buttons.accepted.connect(self.accept)
+        layout.addWidget(buttons, alignment=Qt.AlignmentFlag.AlignRight)

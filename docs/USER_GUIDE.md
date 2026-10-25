@@ -24,3 +24,8 @@ entry or choose View Result to display it. Clear History asks for confirmation.
 Settings, history, and window geometry are stored in
 `~/.traynslookup_config.json`. This path and its format are unchanged by the
 repository restructuring. Delete the file while the app is closed to reset it.
+
+## About
+
+The About button beside the DNS server controls opens the application icon,
+version, creator credit, GitHub repository, and Report an issue links.

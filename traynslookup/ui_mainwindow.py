@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QMessageBox, QStyle
 )
 from datetime import datetime
+from .dialogs import AboutDialog
 from .dns_worker import DNSLookupThread
 from .config import save_config, get_app_icon, get_gear_icon
 
@@ -66,7 +67,17 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.edit_servers_button)
 
         row2.addStretch()
+        self.about_button = QPushButton("About")
+        self.about_button.clicked.connect(self._show_about)
+        row2.addWidget(self.about_button)
         layout.addLayout(row2)
+
+    def _show_about(self):
+        if not hasattr(self, "_about_dialog"):
+            self._about_dialog = AboutDialog(self)
+        self._about_dialog.show()
+        self._about_dialog.raise_()
+        self._about_dialog.activateWindow()
 
     def _build_results_tab(self):
         layout = QVBoxLayout(self.lookup_tab)

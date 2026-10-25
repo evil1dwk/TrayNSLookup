@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.1.0] — proposed
+
+- Add an About button with version, creator credit, repository and issue links.
+
 - Keep query controls above Results/History tabs in the output area.
 - Add Clear Results to clear displayed output while preserving saved history.
 
