@@ -9,7 +9,9 @@ the app running; use Quit to exit.
 Enter a domain, select a record type and DNS server, and choose Run Lookup (or
 press Enter). The system-default option uses the operating system resolver.
 For PTR records, enter the reverse DNS name, such as `8.8.8.8.in-addr.arpa`.
-Results and error messages appear in the results pane.
+Results and error messages appear in the Results tab below the query controls.
+Clear Results empties the displayed output without deleting saved history.
+The query controls remain visible when switching between Results and History.
 
 Use the gear button to add, edit, or remove custom DNS servers. Enter resolver
 IP addresses, one per row, and save.

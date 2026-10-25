@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Keep query controls above Results/History tabs in the output area.
+- Add Clear Results to clear displayed output while preserving saved history.
+
 - Build directly into `dist/` and create versioned, architecture-specific Windows
   ZIP and Linux tar.gz archives. Include a PNG icon and desktop launcher on Linux.
 
