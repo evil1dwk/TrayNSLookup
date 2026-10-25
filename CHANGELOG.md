@@ -7,6 +7,7 @@
 - Automatically convert IPv4 and IPv6 input into PTR reverse lookups.
 - Show record names, types, values, and TTLs in tables with responding server
   and query duration metadata.
+- Use one persistent server-selection menu for single or multiple resolvers.
 - Compare selected DNS servers in parallel, with side-by-side results and
   answer matching that ignores TTL differences and record order.
 - Preserve structured query results in history while continuing to read older

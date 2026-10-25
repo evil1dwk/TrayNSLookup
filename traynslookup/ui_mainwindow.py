@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QComboBox, QPushButton, QPlainTextEdit,
-    QListWidget, QListWidgetItem, QMessageBox, QStyle, QCheckBox, QToolButton,
+    QListWidget, QListWidgetItem, QMessageBox, QStyle, QToolButton,
     QMenu, QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView,
     QAbstractItemView, QSplitter, QScrollArea, QApplication
 )
@@ -69,19 +69,6 @@ class MainWindow(QMainWindow):
 
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("DNS Server:"))
-        self.server_combo = QComboBox()
-        self._reload_server_combo()
-        row2.addWidget(self.server_combo)
-
-        self.edit_servers_button = QPushButton()
-        self.edit_servers_button.setToolTip("Edit DNS servers")
-        self.edit_servers_button.setIcon(get_gear_icon(self.style()))
-        self.edit_servers_button.clicked.connect(self._open_manage_servers)
-        row2.addWidget(self.edit_servers_button)
-
-        self.compare_check = QCheckBox("Compare servers")
-        self.compare_check.toggled.connect(lambda checked: self.server_combo.setEnabled(not checked))
-        row2.addWidget(self.compare_check)
         self.compare_menu = QMenu(self)
         self.choose_servers_button = QToolButton()
         self.choose_servers_button.setText("Select servers")
@@ -89,6 +76,11 @@ class MainWindow(QMainWindow):
         self.choose_servers_button.setMenu(self.compare_menu)
         self._reload_compare_servers()
         row2.addWidget(self.choose_servers_button)
+        self.edit_servers_button = QPushButton()
+        self.edit_servers_button.setToolTip("Edit DNS servers")
+        self.edit_servers_button.setIcon(get_gear_icon(self.style()))
+        self.edit_servers_button.clicked.connect(self._open_manage_servers)
+        row2.addWidget(self.edit_servers_button)
         row2.addStretch()
         layout.addLayout(row2)
 
@@ -137,16 +129,32 @@ class MainWindow(QMainWindow):
         layout.addLayout(btns)
 
     def _reload_compare_servers(self):
-        previous = {action.data() for action in getattr(self, 'server_actions', []) if action.isChecked()}
-        first = not hasattr(self, 'server_actions')
+        available = [None, *dict.fromkeys(self.cfg.get('dns_servers', []))]
+        # None identifies the system resolver in the JSON settings as null.
+        saved = self.cfg.get('selected_dns_servers', available)
+        previous = set(saved) if isinstance(saved, list) else set(available)
         self.compare_menu.clear()
         self.server_actions = []
-        for server in [None, *dict.fromkeys(self.cfg.get('dns_servers', []))]:
+        for server in available:
             action = self.compare_menu.addAction(server or "System default")
             action.setCheckable(True)
             action.setData(server)
-            action.setChecked(first or server in previous)
+            action.setChecked(server in previous)
+            action.toggled.connect(self._save_server_selection)
             self.server_actions.append(action)
+        self._save_server_selection()
+
+    def _save_server_selection(self):
+        selected = [a.data() for a in self.server_actions if a.isChecked()]
+        self.cfg['selected_dns_servers'] = selected
+        if not selected:
+            label = 'Select servers'
+        elif len(selected) == 1:
+            label = selected[0] or 'System default'
+        else:
+            label = f'{len(selected)} servers selected'
+        self.choose_servers_button.setText(label)
+        save_config(self.cfg)
 
     def _clear_results(self):
         self.result_tables = []
@@ -165,13 +173,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Please enter a domain name or IP address.")
             return
         record_type = self.record_combo.currentText()
-        if self.compare_check.isChecked():
-            servers = [a.data() for a in self.server_actions if a.isChecked()]
-            if len(servers) < 2:
-                QMessageBox.warning(self, "Compare servers", "Select at least two DNS servers.")
-                return
-        else:
-            servers = [None if self.server_combo.currentIndex() == 0 else self.server_combo.currentText()]
+        servers = [a.data() for a in self.server_actions if a.isChecked()]
+        if not servers:
+            QMessageBox.warning(self, "DNS servers", "Select at least one DNS server.")
+            return
         from .dns_worker import prepare_query
         name, kind = prepare_query(domain, record_type)
         self.record_combo.setCurrentText(kind)
@@ -282,17 +287,11 @@ class MainWindow(QMainWindow):
             save_config(self.cfg)
             self._refresh_history_view()
 
-    def _reload_server_combo(self):
-        self.server_combo.clear()
-        self.server_combo.addItem("(system default)")
-        self.server_combo.addItems(self.cfg.get("dns_servers", []))
-
     def _open_manage_servers(self):
         new_servers = self.open_manage_servers_callback(self.cfg.get("dns_servers", []))
         if new_servers is not None:
             self.cfg["dns_servers"] = new_servers
             save_config(self.cfg)
-            self._reload_server_combo()
             self._reload_compare_servers()
             QMessageBox.information(self, "DNS Servers Updated", "Changes saved successfully.")
 

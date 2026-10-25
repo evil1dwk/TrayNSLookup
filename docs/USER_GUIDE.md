@@ -43,7 +43,9 @@ affected server panel. Column widths can be adjusted; long values have tooltips.
 
 ## Compare DNS servers
 
-Enable Compare servers and use Select servers to choose at least two entries.
+Use the DNS Server selection menu to choose one or more entries.
+One selection runs a single-server lookup; multiple selections compare answers.
+Selections are saved immediately and restored on restart.
 The list includes System default and your configured DNS servers. Run Lookup
 queries the selected servers concurrently and shows their results side by side;
 scroll horizontally when several panels exceed the window width.

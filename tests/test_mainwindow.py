@@ -15,12 +15,15 @@ class MainWindowTests(unittest.TestCase):
     def setUp(self):
         self.cfg = {'dns_servers': ['1.1.1.1'], 'history': [
             {'query': 'example.com', 'result': 'saved result'}]}
+        self.save_patch = patch('traynslookup.ui_mainwindow.save_config')
+        self.save_patch.start()
         self.window = MainWindow(self.cfg, lambda servers: None)
 
     def tearDown(self):
         self.window._lookup_finished()
         with patch('traynslookup.ui_mainwindow.save_config'):
             self.window.close()
+        self.save_patch.stop()
 
     def test_query_controls_remain_outside_output_tabs(self):
         self.assertIsNot(self.window.centralWidget(), self.window.tabs)
@@ -89,7 +92,6 @@ class MainWindowTests(unittest.TestCase):
         self.window._reload_compare_servers()
         for action in self.window.server_actions:
             action.setChecked(action.data() is not None)
-        self.window.compare_check.setChecked(True)
         self.window.domain_input.setText('2001:db8::1')
         with patch('traynslookup.ui_mainwindow.DNSLookupThread') as worker:
             self.window.run_button.click()
@@ -100,8 +102,7 @@ class MainWindowTests(unittest.TestCase):
         self.window._lookup_finished()
         self.assertTrue(self.window.run_button.isEnabled())
 
-    def test_comparison_requires_two_servers(self):
-        self.window.compare_check.setChecked(True)
+    def test_lookup_requires_at_least_one_server(self):
         self.window.domain_input.setText('example.com')
         for action in self.window.server_actions:
             action.setChecked(False)
@@ -131,3 +132,22 @@ class MainWindowTests(unittest.TestCase):
         self.assertFalse(self.window._lookup_running)
         self.assertEqual(self.window.result_tables[0].item(0, 2).text(), '192.0.2.1')
         self.assertIn('lookup', self.cfg['history'][-1])
+
+    def test_single_server_and_selection_persistence(self):
+        for action in self.window.server_actions:
+            action.setChecked(action.data() == '1.1.1.1')
+        self.assertEqual(self.cfg['selected_dns_servers'], ['1.1.1.1'])
+        self.window.domain_input.setText('example.com')
+        with patch('traynslookup.ui_mainwindow.DNSLookupThread') as worker:
+            self.window._run_lookup()
+            worker.assert_called_once_with('example.com', 'A', ['1.1.1.1'])
+        restored = MainWindow(self.cfg, lambda servers: None)
+        self.assertEqual([a.data() for a in restored.server_actions if a.isChecked()], ['1.1.1.1'])
+        restored.close()
+
+    def test_empty_selection_survives_restart(self):
+        for action in self.window.server_actions:
+            action.setChecked(False)
+        restored = MainWindow(self.cfg, lambda servers: None)
+        self.assertFalse(any(a.isChecked() for a in restored.server_actions))
+        restored.close()
