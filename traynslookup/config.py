@@ -14,9 +14,8 @@ else:
     BASE_DIR = Path(__file__).resolve().parent
 
 ICON_DIRS = [
-    BASE_DIR / "icons",
-    BASE_DIR / "TrayNSLookup" / "icons",
-    Path(__file__).resolve().parent / "icons",
+    Path(__file__).resolve().parent / "assets",
+    BASE_DIR / "traynslookup" / "assets",
 ]
 
 def _find_icon(filename: str) -> Path | None:

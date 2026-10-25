@@ -1,0 +1,4 @@
+{
+  "AppName": "TrayNSLookup",
+  "pyinstaller": ["--noconfirm", "--clean", "--onefile", "--windowed"]
+}

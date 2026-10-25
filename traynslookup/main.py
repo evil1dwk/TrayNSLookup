@@ -1,5 +1,5 @@
 import sys
-from TrayNSLookup.app import TrayNSLookupApp  # absolute import (case-sensitive)
+from traynslookup.app import TrayNSLookupApp
 
 def main():
     app = TrayNSLookupApp(sys.argv)

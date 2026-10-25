@@ -1,6 +1,7 @@
 import sys
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QMessageBox, QDialog
+from .version import __version__
 from .config import load_config, get_app_icon
 from .dialogs import ManageDNSServersDialog
 from .ui_mainwindow import MainWindow
@@ -8,6 +9,8 @@ from .ui_mainwindow import MainWindow
 class TrayNSLookupApp(QApplication):
     def __init__(self, argv):
         super().__init__(argv)
+        self.setApplicationName("TrayNSLookup")
+        self.setApplicationVersion(__version__)
         self.setQuitOnLastWindowClosed(False)
         self.cfg = load_config()
         self.icon = get_app_icon()

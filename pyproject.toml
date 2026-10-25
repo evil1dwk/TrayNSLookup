@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traynslookup"
+dynamic = ["version"]
+description = "A desktop DNS lookup utility with system tray integration"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "evil1dwk"}]
+license = {file = "LICENSE"}
+dependencies = ["PyQt6>=6.6", "dnspython>=2.6"]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.3", "wheel>=0.42"]
+
+[project.gui-scripts]
+traynslookup = "traynslookup.main:main"
+
+[tool.setuptools]
+py-modules = ["TrayNSLookup"]
+
+[tool.setuptools.dynamic]
+version = {attr = "traynslookup.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["traynslookup*"]
+
+[tool.setuptools.package-data]
+traynslookup = ["assets/*.ico"]
