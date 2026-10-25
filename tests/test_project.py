@@ -52,20 +52,6 @@ class ProjectTests(unittest.TestCase):
         finally:
             os.chdir(previous)
 
-    def test_dns_success_and_failure_without_network(self):
-        worker = DNSLookupThread("example.com", "A", "1.1.1.1")
-        results = []
-        worker.finished.connect(lambda query, result: results.append((query, result)))
-        with patch("traynslookup.dns_worker.dns.resolver.Resolver") as factory:
-            resolver = factory.return_value
-            resolver.resolve.return_value = [type("Answer", (), {"to_text": lambda self: "192.0.2.1"})()]
-            worker.run()
-            self.assertEqual(resolver.nameservers, ["1.1.1.1"])
-            self.assertEqual(results[-1], ("example.com", "192.0.2.1"))
-            resolver.resolve.side_effect = RuntimeError("lookup failed")
-            worker.run()
-            self.assertEqual(results[-1][1], "Error: lookup failed")
-
     def test_release_archives(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

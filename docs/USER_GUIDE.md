@@ -29,3 +29,30 @@ repository restructuring. Delete the file while the app is closed to reset it.
 
 The About button at the bottom-left of the window opens the application icon,
 version, creator credit, GitHub repository, and Report an issue links.
+
+## Reverse lookups and structured results
+
+Enter an IPv4 or IPv6 address directly. The app automatically selects PTR and
+constructs its reverse DNS name. Domain input continues to use the selected
+record type; manually entered reverse DNS names are also supported with PTR.
+
+Results show Name, Type, Value, and TTL (seconds). Each server panel identifies
+the requested resolver, the responding resolver, and total elapsed lookup time
+in milliseconds. CNAME records in the answer are included. Errors appear in the
+affected server panel. Column widths can be adjusted; long values have tooltips.
+
+## Compare DNS servers
+
+Enable Compare servers and use Select servers to choose at least two entries.
+The list includes System default and your configured DNS servers. Run Lookup
+queries the selected servers concurrently and shows their results side by side;
+scroll horizontally when several panels exceed the window width.
+
+The comparison summary checks record names, types, and values, ignoring TTL
+and record order. A failed server makes the comparison incomplete. Different
+answers may reflect DNS propagation, caching, split DNS, or load balancing;
+the comparison does not determine which answer is correct. System default may
+use one of the same resolvers you selected explicitly.
+
+New history entries restore these structured panels, including comparisons.
+Older saved results continue to open as text. Clear Results preserves history.

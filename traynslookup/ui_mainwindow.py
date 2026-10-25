@@ -1,8 +1,11 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QComboBox, QPushButton, QPlainTextEdit,
-    QListWidget, QListWidgetItem, QMessageBox, QStyle
+    QListWidget, QListWidgetItem, QMessageBox, QStyle, QCheckBox, QToolButton,
+    QMenu, QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView,
+    QAbstractItemView, QSplitter, QScrollArea, QApplication
 )
+from PyQt6.QtCore import Qt
 from datetime import datetime
 from .dialogs import AboutDialog
 from .dns_worker import DNSLookupThread
@@ -12,6 +15,7 @@ from .config import save_config, get_app_icon, get_gear_icon
 class MainWindow(QMainWindow):
     def __init__(self, cfg, open_manage_servers_callback):
         super().__init__()
+        self._lookup_running = False
         self.cfg = cfg
         self.open_manage_servers_callback = open_manage_servers_callback
 
@@ -36,6 +40,8 @@ class MainWindow(QMainWindow):
         self._build_history_tab()
         self._refresh_history_view()
 
+        QApplication.instance().aboutToQuit.connect(self._wait_for_lookup)
+
         footer = QHBoxLayout()
         self.about_button = QPushButton("About")
         self.about_button.clicked.connect(self._show_about)
@@ -45,9 +51,9 @@ class MainWindow(QMainWindow):
 
     def _build_query_controls(self, layout):
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("Domain:"))
+        row1.addWidget(QLabel("Domain / IP:"))
         self.domain_input = QLineEdit()
-        self.domain_input.setPlaceholderText("example.com")
+        self.domain_input.setPlaceholderText("example.com or IPv4 / IPv6 address")
         self.domain_input.returnPressed.connect(self._run_lookup)
         row1.addWidget(self.domain_input)
 
@@ -73,6 +79,16 @@ class MainWindow(QMainWindow):
         self.edit_servers_button.clicked.connect(self._open_manage_servers)
         row2.addWidget(self.edit_servers_button)
 
+        self.compare_check = QCheckBox("Compare servers")
+        self.compare_check.toggled.connect(lambda checked: self.server_combo.setEnabled(not checked))
+        row2.addWidget(self.compare_check)
+        self.compare_menu = QMenu(self)
+        self.choose_servers_button = QToolButton()
+        self.choose_servers_button.setText("Select servers")
+        self.choose_servers_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.choose_servers_button.setMenu(self.compare_menu)
+        self._reload_compare_servers()
+        row2.addWidget(self.choose_servers_button)
         row2.addStretch()
         layout.addLayout(row2)
 
@@ -88,11 +104,16 @@ class MainWindow(QMainWindow):
         self.results = QPlainTextEdit()
         self.results.setReadOnly(True)
         self.results.setPlaceholderText("Results will appear here...")
-        layout.addWidget(self.results)
+        self.result_stack = QStackedWidget()
+        self.result_stack.addWidget(self.results)
+        self.structured_results = QWidget()
+        self.structured_layout = QVBoxLayout(self.structured_results)
+        self.result_stack.addWidget(self.structured_results)
+        layout.addWidget(self.result_stack)
         buttons = QHBoxLayout()
         buttons.addStretch()
         self.clear_results_button = QPushButton("Clear Results")
-        self.clear_results_button.clicked.connect(self.results.clear)
+        self.clear_results_button.clicked.connect(self._clear_results)
         buttons.addWidget(self.clear_results_button)
         layout.addLayout(buttons)
 
@@ -115,31 +136,121 @@ class MainWindow(QMainWindow):
         btns.addWidget(self.clear_button)
         layout.addLayout(btns)
 
+    def _reload_compare_servers(self):
+        previous = {action.data() for action in getattr(self, 'server_actions', []) if action.isChecked()}
+        first = not hasattr(self, 'server_actions')
+        self.compare_menu.clear()
+        self.server_actions = []
+        for server in [None, *dict.fromkeys(self.cfg.get('dns_servers', []))]:
+            action = self.compare_menu.addAction(server or "System default")
+            action.setCheckable(True)
+            action.setData(server)
+            action.setChecked(first or server in previous)
+            self.server_actions.append(action)
+
+    def _clear_results(self):
+        self.result_tables = []
+        self.results.clear()
+        self.result_stack.setCurrentWidget(self.results)
+        while self.structured_layout.count():
+            item = self.structured_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
     def _run_lookup(self):
+        if self._lookup_running:
+            return
         domain = self.domain_input.text().strip()
         if not domain:
-            QMessageBox.warning(self, "Error", "Please enter a domain name.")
+            QMessageBox.warning(self, "Error", "Please enter a domain name or IP address.")
             return
-
         record_type = self.record_combo.currentText()
-        server_text = self.server_combo.currentText()
-        server = None if server_text == "(system default)" else server_text
-
+        if self.compare_check.isChecked():
+            servers = [a.data() for a in self.server_actions if a.isChecked()]
+            if len(servers) < 2:
+                QMessageBox.warning(self, "Compare servers", "Select at least two DNS servers.")
+                return
+        else:
+            servers = [None if self.server_combo.currentIndex() == 0 else self.server_combo.currentText()]
+        from .dns_worker import prepare_query
+        name, kind = prepare_query(domain, record_type)
+        self.record_combo.setCurrentText(kind)
         self.tabs.setCurrentWidget(self.lookup_tab)
-        self.results.clear()
-        self.results.appendPlainText(f"Querying {domain} ({record_type}) via {server or 'system default'}...\n")
-
-        self.worker = DNSLookupThread(domain, record_type, server)
-        self.worker.finished.connect(self._display_result)
+        self._clear_results()
+        self.results.setPlainText(f"Querying {domain} ({kind}) as {name}...")
+        self._lookup_running = True
+        self.run_button.setEnabled(False)
+        self.worker = DNSLookupThread(domain, kind, servers)
+        self.worker.completed.connect(self._display_result)
+        self.worker.finished.connect(self._lookup_finished)
         self.worker.start()
 
-    def _display_result(self, query, result):
+    def _lookup_finished(self):
+        self._lookup_running = False
+        self.run_button.setEnabled(True)
+
+    def _wait_for_lookup(self):
+        if self._lookup_running:
+            self.worker.wait()
+
+    def _display_result(self, lookup):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        full_result = f"{timestamp}\nQuery: {query}\n\n{result}"
-        self.results.setPlainText(full_result)
-        self.cfg.setdefault("history", []).append({"query": query, "result": full_result})
+        lines = [timestamp, f"Query: {lookup['query']}", lookup['comparison']]
+        for result in lookup['results']:
+            lines.append(f"{result['requested_server']} — {result['server']} ({result['elapsed_ms']} ms)")
+            lines.append(result['error'] or '\n'.join(
+                f"{r['name']} {r['ttl']} {r['type']} {r['value']}" for r in result['records']))
+        full_result = '\n'.join(lines)
+        self._render_lookup(lookup)
+        self.cfg.setdefault("history", []).append(dict(query=lookup['query'], result=full_result, lookup=lookup))
         save_config(self.cfg)
         self._refresh_history_view()
+
+    def _render_lookup(self, lookup):
+        self._clear_results()
+        summary = QLabel(f"Query: {lookup['query']}" + (' — ' + lookup['comparison'] if lookup.get('comparison') else ''))
+        summary.setTextFormat(Qt.TextFormat.PlainText)
+        summary.setWordWrap(True)
+        self.structured_layout.addWidget(summary)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.result_tables = []
+        for result in lookup['results']:
+            panel = QWidget()
+            panel.setMinimumWidth(360)
+            layout = QVBoxLayout(panel)
+            label = QLabel(f"{result['requested_server']}\nResponding server: {result['server'] or 'Unavailable'}"
+                           f"\n{result['record_type']} — {result['elapsed_ms']} ms")
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            label.setWordWrap(True)
+            layout.addWidget(label)
+            if result['error']:
+                error = QLabel(result['error'])
+                error.setTextFormat(Qt.TextFormat.PlainText)
+                error.setWordWrap(True)
+                layout.addWidget(error)
+            table = QTableWidget(len(result['records']), 4)
+            table.setHorizontalHeaderLabels(['Name', 'Type', 'Value', 'TTL (s)'])
+            table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+            table.setColumnWidth(0, 110)
+            table.setColumnWidth(1, 50)
+            table.setColumnWidth(3, 65)
+            table.verticalHeader().hide()
+            for row, record in enumerate(result['records']):
+                for col, key in enumerate(('name', 'type', 'value', 'ttl')):
+                    item = QTableWidgetItem(str(record[key]))
+                    item.setToolTip(str(record[key]))
+                    table.setItem(row, col, item)
+            layout.addWidget(table)
+            self.result_tables.append(table)
+            splitter.addWidget(panel)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(splitter)
+        self.structured_layout.addWidget(scroll)
+        self.result_stack.setCurrentWidget(self.structured_results)
 
     def _refresh_history_view(self):
         self.history_list.clear()
@@ -158,7 +269,11 @@ class MainWindow(QMainWindow):
             return
         original_index = len(history) - 1 - idx
         selected = history[original_index]
-        self.results.setPlainText(selected["result"])
+        if 'lookup' in selected:
+            self._render_lookup(selected['lookup'])
+        else:
+            self._clear_results()
+            self.results.setPlainText(selected["result"])
         self.tabs.setCurrentWidget(self.lookup_tab)
 
     def _clear_history(self):
@@ -174,10 +289,11 @@ class MainWindow(QMainWindow):
 
     def _open_manage_servers(self):
         new_servers = self.open_manage_servers_callback(self.cfg.get("dns_servers", []))
-        if new_servers:
+        if new_servers is not None:
             self.cfg["dns_servers"] = new_servers
             save_config(self.cfg)
             self._reload_server_combo()
+            self._reload_compare_servers()
             QMessageBox.information(self, "DNS Servers Updated", "Changes saved successfully.")
 
     def _restore_window_geometry(self):
