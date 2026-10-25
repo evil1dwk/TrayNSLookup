@@ -7,6 +7,9 @@ from PyQt6.QtWidgets import (
     QCheckBox, QDateEdit
 )
 from PyQt6.QtCore import Qt, QDate
+from PyQt6.QtGui import QColor, QBrush
+from copy import deepcopy
+from .comparisons import server_statuses, compare_history
 from datetime import datetime
 from pathlib import Path
 from .result_tools import RECORD_TYPES, export_result, format_text, history_matches
@@ -18,6 +21,7 @@ from .config import save_config, get_app_icon, get_gear_icon
 class MainWindow(QMainWindow):
     def __init__(self, cfg, open_manage_servers_callback):
         super().__init__()
+        self._comparison_baseline = None
         self.current_lookup = None
         self._lookup_running = False
         self.cfg = cfg
@@ -179,11 +183,20 @@ class MainWindow(QMainWindow):
         btns.addStretch()
         self.rerun_button = QPushButton("Run Again")
         self.rerun_button.clicked.connect(self._rerun_selected_history)
+        self.compare_history_button = QPushButton("Compare with Current")
+        self.compare_history_button.clicked.connect(self._compare_selected_history)
+        btns.addWidget(self.compare_history_button)
         btns.addWidget(self.rerun_button)
         btns.addWidget(self.view_button)
         btns.addWidget(self.refresh_button)
         btns.addWidget(self.clear_button)
         layout.addLayout(btns)
+
+    def _server_label(self, server):
+        if server is None:
+            return 'System default'
+        name = self.cfg.get('dns_server_names', {}).get(server, '')
+        return f'{name} — {server}' if name else server
 
     def _reload_compare_servers(self):
         available = [None, *dict.fromkeys(self.cfg.get('dns_servers', []))]
@@ -193,7 +206,7 @@ class MainWindow(QMainWindow):
         self.compare_menu.clear()
         self.server_actions = []
         for server in available:
-            action = self.compare_menu.addAction(server or "System default")
+            action = self.compare_menu.addAction(self._server_label(server))
             action.setCheckable(True)
             action.setData(server)
             action.setChecked(server in previous)
@@ -207,12 +220,12 @@ class MainWindow(QMainWindow):
         if not selected:
             label = 'Select servers'
         elif len(selected) == 1:
-            label = selected[0] or 'System default'
+            label = self._server_label(selected[0])
         else:
             label = f'{len(selected)} servers selected'
         self.choose_servers_button.setText(label)
         self.choose_servers_button.setToolTip(
-            "\n".join(server or "System default" for server in selected) or "Select one or more DNS servers")
+            "\n".join(self._server_label(server) for server in selected) or "Select one or more DNS servers")
         save_config(self.cfg)
 
     def _clear_results(self):
@@ -240,9 +253,11 @@ class MainWindow(QMainWindow):
             return
         self._start_lookup(domain, record_type, servers)
 
-    def _start_lookup(self, domain, record_type, servers):
+    def _start_lookup(self, domain, record_type, servers, baseline=None):
         if self._lookup_running:
             return
+        self._comparison_baseline = deepcopy(baseline) if baseline else None
+        self._query_server_names = dict(self.cfg.get("dns_server_names", {}))
         from .dns_worker import prepare_query
         name, kind = prepare_query(domain, record_type)
         self.record_combo.setCurrentText(kind)
@@ -252,6 +267,7 @@ class MainWindow(QMainWindow):
         self._lookup_running = True
         self.run_button.setEnabled(False)
         self.rerun_button.setEnabled(False)
+        self.compare_history_button.setEnabled(False)
         self.worker = DNSLookupThread(domain, kind, servers)
         self.worker.completed.connect(self._display_result)
         self.worker.finished.connect(self._lookup_finished)
@@ -261,6 +277,7 @@ class MainWindow(QMainWindow):
         self._lookup_running = False
         self.run_button.setEnabled(True)
         self.rerun_button.setEnabled(True)
+        self.compare_history_button.setEnabled(True)
 
     def _wait_for_lookup(self):
         if self._lookup_running:
@@ -269,6 +286,13 @@ class MainWindow(QMainWindow):
     def _display_result(self, lookup):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         lookup['timestamp'] = timestamp
+        for result in lookup['results']:
+            name = getattr(self, '_query_server_names', self.cfg.get('dns_server_names', {})).get(result['requested_server'])
+            if name:
+                result['requested_server_name'] = name
+        if self._comparison_baseline is not None:
+            lookup['history_comparison'] = compare_history(self._comparison_baseline, lookup)
+        self._comparison_baseline = None
         full_result = format_text(lookup)
         self._render_lookup(lookup)
         self.cfg.setdefault("history", []).append(dict(query=lookup['query'], timestamp=timestamp, result=full_result, lookup=lookup))
@@ -281,13 +305,25 @@ class MainWindow(QMainWindow):
         summary.setTextFormat(Qt.TextFormat.PlainText)
         summary.setWordWrap(True)
         self.structured_layout.addWidget(summary)
+        comparison = lookup.get('history_comparison')
+        if comparison:
+            dates = QLabel(f"Saved: {comparison['saved_timestamp']}    Current: {comparison['current_timestamp']}"
+                           "\nAdded = green; Removed = red. TTL and record order are ignored.")
+            dates.setTextFormat(Qt.TextFormat.PlainText)
+            dates.setWordWrap(True)
+            self.structured_layout.addWidget(dates)
+        elif len(lookup['results']) > 1:
+            self.structured_layout.addWidget(QLabel('Different = highlighted; Shared = present on every server.'))
+        statuses = server_statuses(lookup['results'])
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.result_tables = []
-        for result in lookup['results']:
+        for result_index, result in enumerate(lookup['results']):
             panel = QWidget()
-            panel.setMinimumWidth(360)
+            panel.setMinimumWidth(480 if comparison else 420)
             layout = QVBoxLayout(panel)
-            label = QLabel(f"{result['requested_server']}\nResponding server: {result['server'] or 'Unavailable'}"
+            server_title = result.get('requested_server_name', '')
+            server_title = f"{server_title} — {result['requested_server']}" if server_title else result['requested_server']
+            label = QLabel(f"{server_title}\nResponding server: {result['server'] or 'Unavailable'}"
                            f"\n{result['record_type']} — {result['elapsed_ms']} ms")
             label.setTextFormat(Qt.TextFormat.PlainText)
             label.setWordWrap(True)
@@ -297,20 +333,40 @@ class MainWindow(QMainWindow):
                 error.setTextFormat(Qt.TextFormat.PlainText)
                 error.setWordWrap(True)
                 layout.addWidget(error)
-            table = QTableWidget(len(result['records']), 4)
-            table.setHorizontalHeaderLabels(['Name', 'Type', 'Value', 'TTL (s)'])
+            history_result = comparison['results'][result_index] if comparison else None
+            if history_result and history_result['error']:
+                warning = QLabel('Unable to compare: ' + history_result['error'])
+                warning.setTextFormat(Qt.TextFormat.PlainText)
+                warning.setWordWrap(True)
+                layout.addWidget(warning)
+            records = history_result['rows'] if history_result else result['records']
+            columns = [('status', 'Change' if comparison else 'Comparison'), ('name', 'Name'),
+                       ('type', 'Type'), ('value', 'Value')]
+            columns += [('saved_ttl', 'Saved TTL'), ('current_ttl', 'Current TTL')] if comparison else [('ttl', 'TTL (s)')]
+            if not comparison and len(lookup['results']) == 1:
+                columns = columns[1:]
+            table = QTableWidget(len(records), len(columns))
+            table.display_records = records if comparison else [dict(record, status=statuses[result_index][i])
+                                                       for i, record in enumerate(records)]
+            table.setHorizontalHeaderLabels([label for key, label in columns])
             table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
             table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-            table.setColumnWidth(0, 110)
-            table.setColumnWidth(1, 50)
-            table.setColumnWidth(3, 65)
             table.verticalHeader().hide()
-            for row, record in enumerate(result['records']):
-                for col, key in enumerate(('name', 'type', 'value', 'ttl')):
-                    item = QTableWidgetItem(str(record[key]))
-                    item.setToolTip(str(record[key]))
+            for col, (key, title) in enumerate(columns):
+                table.setColumnWidth(col, 110 if key in ('name', 'status') else 90 if key in ('saved_ttl', 'current_ttl') else 65)
+                if key == 'value':
+                    table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+            for row, record in enumerate(records):
+                status = record.get('status', statuses[result_index][row] if not comparison else '')
+                for col, (key, title) in enumerate(columns):
+                    value = status if key == 'status' else record.get(key, '')
+                    item = QTableWidgetItem(str(value))
+                    item.setToolTip(str(value))
+                    color = {'Different': '#fff0b3', 'Added': '#c8eed0', 'Removed': '#ffd0d0'}.get(status)
+                    if color:
+                        item.setBackground(QBrush(QColor(color)))
+                        item.setForeground(QBrush(QColor('#111111')))
                     table.setItem(row, col, item)
             layout.addWidget(table)
             self.result_tables.append(table)
@@ -335,7 +391,10 @@ class MainWindow(QMainWindow):
                     self.history_to.date().toString('yyyy-MM-dd') if self.history_date_filter.isChecked() else ''):
                 continue
             first_line = entry["result"].split("\n", 1)[0]
-            item = QListWidgetItem(f"{first_line} — {entry['query']}")
+            server_names = ', '.join(r.get('requested_server_name') or r['requested_server']
+                                     for r in entry.get('lookup', {}).get('results', []))
+            item = QListWidgetItem(f"{first_line} — {entry['query']}" + (f" — {server_names}" if server_names else ''))
+            item.setToolTip(item.text())
             item.setData(Qt.ItemDataRole.UserRole, index)
             self.history_list.addItem(item)
         self.history_count.setText(f"{self.history_list.count()} of {len(history)} saved lookups")
@@ -366,7 +425,17 @@ class MainWindow(QMainWindow):
             self._set_output_actions(bool(selected['result']))
         self.tabs.setCurrentWidget(self.lookup_tab)
 
-    def _rerun_selected_history(self):
+    def _compare_selected_history(self):
+        selected = self._selected_history()
+        if selected is None or self._lookup_running:
+            return
+        if not selected.get('lookup', {}).get('results'):
+            QMessageBox.information(self, 'Compare with Current',
+                                    'This older text-only entry has no structured records to compare.')
+            return
+        self._rerun_selected_history(compare=True)
+
+    def _rerun_selected_history(self, checked=False, compare=False):
         selected = self._selected_history()
         if selected is None or self._lookup_running:
             return
@@ -382,7 +451,12 @@ class MainWindow(QMainWindow):
                     self.cfg.setdefault('dns_servers', []).append(server)
             self.cfg['selected_dns_servers'] = servers
             self._reload_compare_servers()
-            self._start_lookup(selected['query'], kind, servers)
+            if compare:
+                baseline = deepcopy(lookup)
+                baseline.setdefault('timestamp', selected.get('timestamp') or selected['result'].split('\n')[0])
+                self._start_lookup(selected['query'], kind, servers, baseline=baseline)
+            else:
+                self._start_lookup(selected['query'], kind, servers)
         else:
             # Text-only history has no resolver/type metadata: use visible controls.
             self._run_lookup()
@@ -401,12 +475,12 @@ class MainWindow(QMainWindow):
             lines = []
             for result, table in zip(self.current_lookup['results'], self.result_tables):
                 for row in sorted(index.row() for index in table.selectionModel().selectedRows()):
-                    record = result['records'][row]
+                    record = table.display_records[row]
                     lines.append('\t'.join(str(v) for v in (result['server'], record['name'],
-                                 record['type'], record['value'], record['ttl'])))
+                                 record['type'], record['value'], record.get('ttl', ''), record.get('status', ''))))
             text = '\n'.join(lines)
             if text:
-                text = 'Server\tName\tType\tValue\tTTL (s)\n' + text
+                text = 'Server\tName\tType\tValue\tTTL (s)\tChange\n' + text
         if text:
             QApplication.clipboard().setText(text)
         else:

@@ -78,7 +78,7 @@ class MainWindowTests(unittest.TestCase):
         with patch('traynslookup.ui_mainwindow.save_config'):
             self.window._display_result(lookup)
         self.assertEqual(len(self.window.result_tables), 2)
-        self.assertEqual(self.window.result_tables[0].item(0, 3).text(), '60')
+        self.assertEqual(self.window.result_tables[0].item(0, 4).text(), '60')
         self.assertIs(self.window.result_stack.currentWidget(), self.window.structured_results)
         self.window.clear_results_button.click()
         self.assertEqual(len(self.cfg['history']), 2)
@@ -130,7 +130,7 @@ class MainWindowTests(unittest.TestCase):
             self.window.worker.wait()
             self.app.processEvents()
         self.assertFalse(self.window._lookup_running)
-        self.assertEqual(self.window.result_tables[0].item(0, 2).text(), '192.0.2.1')
+        self.assertEqual(self.window.result_tables[0].item(0, 3).text(), '192.0.2.1')
         self.assertIn('lookup', self.cfg['history'][-1])
 
     def test_single_server_and_selection_persistence(self):
@@ -217,3 +217,45 @@ class MainWindowTests(unittest.TestCase):
         self.assertEqual(self.window.history_list.count(), 0)
         self.window.history_reset_button.click()
         self.assertEqual(self.window.history_list.count(), 2)
+
+    def test_named_server_label_and_snapshot(self):
+        from test_result_tools import fixture
+        self.cfg['dns_server_names'] = {'1.1.1.1':'Cloudflare'}
+        self.window._reload_compare_servers()
+        self.assertIn('Cloudflare', self.window.server_actions[1].text())
+        lookup = fixture()
+        self.window._display_result(lookup)
+        self.assertEqual(lookup['results'][0]['requested_server_name'], 'Cloudflare')
+        self.assertIn('Cloudflare', self.window.history_list.item(0).text())
+        self.window.history_server_filter.setText('cloudflare')
+        self.assertEqual(self.window.history_list.count(), 1)
+
+    def test_history_comparison_keeps_original_and_saves_fresh_result(self):
+        from test_result_tools import fixture
+        from copy import deepcopy
+        baseline = fixture()
+        baseline['results'] = baseline['results'][:1]
+        entry = dict(query='example.com', result='2026-10-25 09:00:00', lookup=deepcopy(baseline))
+        self.cfg['history'].append(entry)
+        self.window._refresh_history_view()
+        self.window.history_list.setCurrentRow(0)
+        with patch('traynslookup.ui_mainwindow.DNSLookupThread'):
+            self.window.compare_history_button.click()
+        current = deepcopy(baseline)
+        current['results'][0]['records'][0]['value'] = 'new value'
+        self.window._display_result(current)
+        table = self.window.result_tables[0]
+        self.assertEqual({table.item(row, 0).text() for row in range(table.rowCount())}, {'Added','Removed'})
+        self.assertEqual(entry['lookup'], baseline)
+        self.assertEqual(len(self.cfg['history']), 3)
+        self.window._lookup_finished()
+        self.window.history_list.setCurrentRow(0)
+        self.window.view_button.click()
+        self.assertEqual(self.window.result_tables[0].rowCount(), 2)
+
+    def test_legacy_history_comparison_is_not_started(self):
+        self.window.history_list.setCurrentRow(0)
+        with patch('traynslookup.ui_mainwindow.QMessageBox.information') as message:
+            self.window.compare_history_button.click()
+            message.assert_called_once()
+        self.assertFalse(self.window._lookup_running)

@@ -35,7 +35,7 @@ class TrayNSLookupApp(QApplication):
         menu.addAction(open_action)
 
         manage_action = QAction("Manage DNS Servers", self)
-        manage_action.triggered.connect(lambda: self._open_manage_servers_dialog(self.cfg["dns_servers"], True))
+        manage_action.triggered.connect(self.main_win._open_manage_servers)
         menu.addAction(manage_action)
 
         menu.addSeparator()
@@ -54,9 +54,10 @@ class TrayNSLookupApp(QApplication):
         self.main_win.activateWindow()
 
     def _open_manage_servers_dialog(self, servers, show_message=False):
-        dlg = ManageDNSServersDialog(servers, parent=self.main_win)
+        dlg = ManageDNSServersDialog(servers, parent=self.main_win, names=self.cfg.get("dns_server_names", {}))
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_servers = dlg.get_servers()
+            self.cfg["dns_server_names"] = dlg.get_names()
             if show_message:
                 QMessageBox.information(None, "DNS Servers Updated", "Changes saved successfully.")
             return new_servers
