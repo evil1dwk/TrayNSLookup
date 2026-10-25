@@ -41,16 +41,17 @@ class ProjectTests(unittest.TestCase):
 
     def test_build_paths_from_other_directory(self):
         previous = Path.cwd()
-        try:
-            with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory() as folder:
+            try:
                 os.chdir(folder)
                 for platform in ("windows", "linux"):
                     command = build_command(platform)
                     self.assertEqual(command[-1], str(ROOT / "traynslookup" / "__main__.py"))
                     self.assertIn(str(ROOT / "dist"), command)
                     self.assertIn(str(ROOT / "traynslookup" / "assets") + ":traynslookup/assets", command)
-        finally:
-            os.chdir(previous)
+            finally:
+                # Restore cwd before TemporaryDirectory attempts Windows cleanup.
+                os.chdir(previous)
 
     def test_release_archives(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -72,8 +73,8 @@ class ProjectTests(unittest.TestCase):
                     if os.name != "nt":
                         self.assertTrue(archive.getmember("TrayNSLookup").mode & 0o111)
                     desktop = archive.extractfile("com.evil1dwk.traynslookup.desktop").read().decode()
-                    self.assertIn("Exec=TrayNSLookup\n", desktop)
-                    self.assertIn("Icon=TrayNSLookup\n", desktop)
+                    self.assertIn("Exec=TrayNSLookup", desktop.splitlines())
+                    self.assertIn("Icon=TrayNSLookup", desktop.splitlines())
                 windows = package_release("windows", root)
                 self.assertEqual(windows.name, f"TrayNSLookup-{__version__}-windows-x86_64.zip")
                 with zipfile.ZipFile(windows) as archive:
