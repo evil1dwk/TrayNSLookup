@@ -42,13 +42,6 @@ class MainWindow(QMainWindow):
 
         QApplication.instance().aboutToQuit.connect(self._wait_for_lookup)
 
-        footer = QHBoxLayout()
-        self.about_button = QPushButton("About")
-        self.about_button.clicked.connect(self._show_about)
-        footer.addWidget(self.about_button)
-        footer.addStretch()
-        layout.addLayout(footer)
-
     def _build_query_controls(self, layout):
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Domain / IP:"))
@@ -104,6 +97,9 @@ class MainWindow(QMainWindow):
         self.result_stack.addWidget(self.structured_results)
         layout.addWidget(self.result_stack)
         buttons = QHBoxLayout()
+        self.about_button = QPushButton("About")
+        self.about_button.clicked.connect(self._show_about)
+        buttons.addWidget(self.about_button)
         buttons.addStretch()
         self.clear_results_button = QPushButton("Clear Results")
         self.clear_results_button.clicked.connect(self._clear_results)
@@ -123,8 +119,11 @@ class MainWindow(QMainWindow):
         self.refresh_button.clicked.connect(self._refresh_history_view)
         self.clear_button = QPushButton("Clear History")
         self.clear_button.clicked.connect(self._clear_history)
-        btns.addWidget(self.view_button)
+        self.history_about_button = QPushButton("About")
+        self.history_about_button.clicked.connect(self._show_about)
+        btns.addWidget(self.history_about_button)
         btns.addStretch()
+        btns.addWidget(self.view_button)
         btns.addWidget(self.refresh_button)
         btns.addWidget(self.clear_button)
         layout.addLayout(btns)

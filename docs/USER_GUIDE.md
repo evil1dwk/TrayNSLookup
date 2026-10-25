@@ -27,7 +27,7 @@ repository restructuring. Delete the file while the app is closed to reset it.
 
 ## About
 
-The About button at the bottom-left of the window opens the application icon,
+The About button at the bottom-left of either tab opens the application icon,
 version, creator credit, GitHub repository, and Report an issue links.
 
 ## Reverse lookups and structured results
