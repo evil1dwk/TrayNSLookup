@@ -18,9 +18,6 @@ build = ["pyinstaller>=6.3", "wheel>=0.42"]
 [project.gui-scripts]
 traynslookup = "traynslookup.main:main"
 
-[tool.setuptools]
-py-modules = ["TrayNSLookup"]
-
 [tool.setuptools.dynamic]
 version = {attr = "traynslookup.version.__version__"}
 

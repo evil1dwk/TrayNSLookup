@@ -23,15 +23,18 @@ python -m pip install -e .
 python -m traynslookup
 ```
 
-You can also use `traynslookup`, `python main.py`, or the original
-`python -m TrayNSLookup` command.
+## Build
+
+```bash
+python -m pip install -e ".[build]"
+python scripts/build.py
+```
 
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
 | `traynslookup/` | Application, dialogs, DNS worker, configuration, and bundled assets |
-| `TrayNSLookup.py` | Compatibility for the original module command |
 | `scripts/` | Build tools |
 | `packaging/` | Tracked platform build configuration |
 | `tests/` | Unit and packaging regression tests |
