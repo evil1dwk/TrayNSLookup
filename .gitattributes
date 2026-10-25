@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Linux desktop launchers must retain Unix line endings on every build host.
+*.desktop text eol=lf
