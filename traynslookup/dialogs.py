@@ -1,57 +1,70 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel, QDialogButtonBox
+    QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel, QDialogButtonBox, QTableWidget, QTableWidgetItem, QMessageBox, QAbstractItemView
 )
 from PyQt6.QtCore import Qt
 from .config import get_app_icon
 
 class ManageDNSServersDialog(QDialog):
-    def __init__(self, servers, parent=None):
+    def __init__(self, servers, parent=None, names=None):
         super().__init__(parent)
         self.setWindowTitle("Manage DNS Servers")
         self.setWindowIcon(get_app_icon())
-        self.resize(420, 320)
-
+        self.resize(520, 340)
         layout = QVBoxLayout(self)
-        self.list_widget = QListWidget(self)
+        self.table = QTableWidget(0, 2)
+        self.table.setHorizontalHeaderLabels(['Name (optional)', 'IP address'])
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.horizontalHeader().setStretchLastSection(True)
         for server in servers:
-            item = QListWidgetItem(server)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-            self.list_widget.addItem(item)
-        layout.addWidget(self.list_widget)
+            self._add_row((names or {}).get(server, ''), server)
+        layout.addWidget(self.table)
+        buttons = QHBoxLayout()
+        for text, callback in [('Add', self.add_server), ('Remove', self.remove_server),
+                               ('Save', self.accept), ('Cancel', self.reject)]:
+            button = QPushButton(text)
+            button.clicked.connect(callback)
+            buttons.addWidget(button)
+        layout.addLayout(buttons)
 
-        btns = QHBoxLayout()
-        self.add_button = QPushButton("Add")
-        self.remove_button = QPushButton("Remove")
-        btns.addWidget(self.add_button)
-        btns.addWidget(self.remove_button)
-        btns.addStretch()
-        self.save_button = QPushButton("Save")
-        self.cancel_button = QPushButton("Cancel")
-        btns.addWidget(self.save_button)
-        btns.addWidget(self.cancel_button)
-        layout.addLayout(btns)
-
-        self.add_button.clicked.connect(self.add_server)
-        self.remove_button.clicked.connect(self.remove_server)
-        self.save_button.clicked.connect(self.accept)
-        self.cancel_button.clicked.connect(self.reject)
+    def _add_row(self, name='', address=''):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self.table.setItem(row, 0, QTableWidgetItem(name))
+        self.table.setItem(row, 1, QTableWidgetItem(address))
 
     def add_server(self):
-        item = QListWidgetItem("")
-        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        self.list_widget.addItem(item)
-        self.list_widget.editItem(item)
+        self._add_row()
+        self.table.editItem(self.table.item(self.table.rowCount() - 1, 0))
 
     def remove_server(self):
-        for item in self.list_widget.selectedItems():
-            self.list_widget.takeItem(self.list_widget.row(item))
+        for row in sorted({i.row() for i in self.table.selectionModel().selectedRows()}, reverse=True):
+            self.table.removeRow(row)
+
+    def _rows(self):
+        return [(self.table.item(row, 0).text().strip(), self.table.item(row, 1).text().strip())
+                for row in range(self.table.rowCount())]
+
+    def accept(self):
+        import ipaddress
+        addresses = []
+        try:
+            for name, address in self._rows():
+                if not name and not address:
+                    continue
+                ipaddress.ip_address(address)
+                if address in addresses:
+                    raise ValueError('Each DNS server address must be unique.')
+                addresses.append(address)
+        except ValueError as exc:
+            QMessageBox.warning(self, 'Invalid DNS server', str(exc))
+            return
+        super().accept()
 
     def get_servers(self):
-        return [
-            self.list_widget.item(i).text().strip()
-            for i in range(self.list_widget.count())
-            if self.list_widget.item(i).text().strip()
-        ]
+        return [address for name, address in self._rows() if address]
+
+    def get_names(self):
+        return {address: name for name, address in self._rows() if address and name}
 
 
 class AboutDialog(QDialog):

@@ -91,3 +91,36 @@ query was saved, and updates the server selector. A legacy text-only entry uses
 the current type and selected servers because its original metadata is unavailable.
 Clear History still deletes all saved entries after confirmation, including entries
 hidden by filters. Clearing the displayed results does not delete history.
+
+## Named DNS servers
+
+Open the gear button (or Manage DNS Servers in the tray). Each row has an optional
+Name and an IP address. Existing IP-only settings continue to work. Names appear
+alongside addresses in the server menu and are captured in new results and history.
+History server filters also match these captured names. Renaming a server does not
+change its address-based selection or the identity used for comparisons.
+
+## Highlighted resolver differences
+
+For multiple successful resolvers, records present everywhere are labeled Shared;
+records absent from any resolver are labeled Different and highlighted yellow.
+TTL and answer order are ignored. If any resolver fails, the records are labeled
+Unable to compare instead of implying that a timeout is a missing record.
+
+## Compare history with current DNS
+
+Select a structured history entry and choose Compare with Current. The app repeats
+the saved query with its original record type and resolver addresses, then shows
+both timestamps and a table for each resolver. Added records are green, removed
+records are red, and unchanged records are labeled Unchanged. Saved and current
+TTLs are displayed, but TTL changes do not count as record changes.
+
+Failed saved/current queries cannot be compared. A System default entry also
+cannot be compared when its actual responding resolver has changed. Older
+text-only history cannot be compared because it lacks structured records.
+
+The original entry is preserved; the fresh result and comparison are saved as a
+new entry. Opening that entry later restores its comparison. Copy/export includes
+change labels; CSV includes saved/current TTLs and comparison errors, and JSON
+preserves fresh query data plus comparison details. DNS answers may legitimately
+change because of caching, geographic responses, or load balancing.

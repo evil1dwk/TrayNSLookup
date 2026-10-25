@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.4.0] — proposed
+
+- Name DNS servers while preserving existing address-based settings and selections.
+- Highlight records that differ between resolvers with explicit status labels.
+- Compare saved structured lookups with fresh results from the same resolvers,
+  showing added, removed, and unchanged records and both timestamps.
+- Preserve the original history entry and save each new comparison separately.
+- Include names and comparison changes in copy/export output and history search.
+
 ## [1.3.0] — proposed
 
 - Add SOA, SRV, CAA, and HTTPS record types.
