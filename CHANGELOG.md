@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Build directly into `dist/` and create versioned, architecture-specific Windows
+  ZIP and Linux tar.gz archives. Include a PNG icon and desktop launcher on Linux.
+
 ### Repository structure
 
 - Moved application code and icons into the lowercase `traynslookup` package.
