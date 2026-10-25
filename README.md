@@ -6,6 +6,9 @@ It runs in the system tray and keeps lookup history between sessions.
 ## Features
 
 - Look up A, AAAA, CNAME, MX, TXT, NS, and PTR records.
+- Enter IPv4 or IPv6 addresses for automatic reverse lookup.
+- Inspect structured records with TTL, responding resolver, and query duration.
+- Compare selected DNS servers side by side.
 - Use the system resolver or choose a custom DNS server.
 - Manage DNS servers from the lookup window or tray menu.
 - Review saved results in the History tab.
