@@ -60,3 +60,17 @@ class DNSTests(unittest.TestCase):
             worker.run()
         self.assertEqual([r['server'] for r in received[0]['results']], ['1.1.1.1', '8.8.8.8'])
         self.assertIn('incomplete', received[0]['comparison'])
+
+    def test_additional_record_types_keep_full_values(self):
+        records = {'SOA': 'ns.example. hostmaster.example. 1 3600 600 86400 300',
+                   'SRV': '10 5 443 target.example.', 'CAA': '0 issue "letsencrypt.org"',
+                   'HTTPS': '1 . alpn="h2"'}
+        for kind, value in records.items():
+            query = dns.message.make_query('example.com.', kind)
+            response = dns.message.make_response(query)
+            response.answer.append(dns.rrset.from_text('example.com.', 60, 'IN', kind, value))
+            with patch('traynslookup.dns_worker.dns.resolver.Resolver') as factory:
+                factory.return_value.resolve.return_value = Mock(response=response, nameserver='1.1.1.1')
+                result = lookup_server('example.com', kind, '1.1.1.1')
+                self.assertEqual(result['records'][0]['type'], kind)
+                self.assertEqual(result['records'][0]['value'], value)

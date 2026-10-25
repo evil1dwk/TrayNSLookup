@@ -3,10 +3,13 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QComboBox, QPushButton, QPlainTextEdit,
     QListWidget, QListWidgetItem, QMessageBox, QStyle, QToolButton,
     QMenu, QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QAbstractItemView, QSplitter, QScrollArea, QApplication
+    QAbstractItemView, QSplitter, QScrollArea, QApplication, QFileDialog,
+    QCheckBox, QDateEdit
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QDate
 from datetime import datetime
+from pathlib import Path
+from .result_tools import RECORD_TYPES, export_result, format_text, history_matches
 from .dialogs import AboutDialog
 from .dns_worker import DNSLookupThread
 from .config import save_config, get_app_icon, get_gear_icon
@@ -15,6 +18,7 @@ from .config import save_config, get_app_icon, get_gear_icon
 class MainWindow(QMainWindow):
     def __init__(self, cfg, open_manage_servers_callback):
         super().__init__()
+        self.current_lookup = None
         self._lookup_running = False
         self.cfg = cfg
         self.open_manage_servers_callback = open_manage_servers_callback
@@ -52,7 +56,7 @@ class MainWindow(QMainWindow):
 
         row1.addWidget(QLabel("Record Type:"))
         self.record_combo = QComboBox()
-        self.record_combo.addItems(["A", "AAAA", "CNAME", "MX", "TXT", "NS", "PTR"])
+        self.record_combo.addItems(RECORD_TYPES)
         row1.addWidget(self.record_combo)
 
         self.run_button = QPushButton("Run Lookup")
@@ -101,13 +105,63 @@ class MainWindow(QMainWindow):
         self.about_button.clicked.connect(self._show_about)
         buttons.addWidget(self.about_button)
         buttons.addStretch()
+        self.copy_selected_button = QPushButton("Copy Selected")
+        self.copy_selected_button.clicked.connect(self._copy_selected)
+        buttons.addWidget(self.copy_selected_button)
+        self.copy_all_button = QPushButton("Copy All")
+        self.copy_all_button.clicked.connect(self._copy_all)
+        buttons.addWidget(self.copy_all_button)
+        self.export_button = QToolButton()
+        self.export_button.setText("Export")
+        self.export_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        export_menu = QMenu(self.export_button)
+        for label, kind in [('Text (.txt)', 'txt'), ('CSV (.csv)', 'csv'), ('JSON (.json)', 'json')]:
+            export_menu.addAction(label).triggered.connect(lambda checked=False, kind=kind: self._export_results(kind))
+        self.export_button.setMenu(export_menu)
+        buttons.addWidget(self.export_button)
         self.clear_results_button = QPushButton("Clear Results")
         self.clear_results_button.clicked.connect(self._clear_results)
         buttons.addWidget(self.clear_results_button)
         layout.addLayout(buttons)
+        self._set_output_actions(False)
 
     def _build_history_tab(self):
         layout = QVBoxLayout(self.history_tab)
+        filters = QHBoxLayout()
+        self.history_search = QLineEdit()
+        self.history_search.setPlaceholderText("Search domain / IP")
+        self.history_server_filter = QLineEdit()
+        self.history_server_filter.setPlaceholderText("Filter DNS server")
+        self.history_type_filter = QComboBox()
+        self.history_type_filter.addItems(['All types', *RECORD_TYPES])
+        for widget in (self.history_search, self.history_server_filter, self.history_type_filter):
+            filters.addWidget(widget)
+        layout.addLayout(filters)
+        dates = QHBoxLayout()
+        self.history_date_filter = QCheckBox("Date range")
+        dates.addWidget(self.history_date_filter)
+        self.history_from = QDateEdit(QDate.currentDate().addDays(-30))
+        self.history_to = QDateEdit(QDate.currentDate())
+        for label, widget in [('From', self.history_from), ('To', self.history_to)]:
+            widget.setCalendarPopup(True)
+            widget.setDisplayFormat('yyyy-MM-dd')
+            widget.setEnabled(False)
+            dates.addWidget(QLabel(label))
+            dates.addWidget(widget)
+            widget.dateChanged.connect(self._refresh_history_view)
+        self.history_date_filter.toggled.connect(self.history_from.setEnabled)
+        self.history_date_filter.toggled.connect(self.history_to.setEnabled)
+        self.history_date_filter.toggled.connect(self._refresh_history_view)
+        self.history_reset_button = QPushButton("Reset Filters")
+        self.history_reset_button.clicked.connect(self._reset_history_filters)
+        dates.addWidget(self.history_reset_button)
+        dates.addStretch()
+        layout.addLayout(dates)
+        self.history_search.textChanged.connect(self._refresh_history_view)
+        self.history_server_filter.textChanged.connect(self._refresh_history_view)
+        self.history_type_filter.currentTextChanged.connect(self._refresh_history_view)
+        self.history_count = QLabel()
+        layout.addWidget(self.history_count)
         self.history_list = QListWidget()
         self.history_list.itemDoubleClicked.connect(self._open_selected_history)
         layout.addWidget(self.history_list)
@@ -123,6 +177,9 @@ class MainWindow(QMainWindow):
         self.history_about_button.clicked.connect(self._show_about)
         btns.addWidget(self.history_about_button)
         btns.addStretch()
+        self.rerun_button = QPushButton("Run Again")
+        self.rerun_button.clicked.connect(self._rerun_selected_history)
+        btns.addWidget(self.rerun_button)
         btns.addWidget(self.view_button)
         btns.addWidget(self.refresh_button)
         btns.addWidget(self.clear_button)
@@ -159,6 +216,8 @@ class MainWindow(QMainWindow):
         save_config(self.cfg)
 
     def _clear_results(self):
+        self.current_lookup = None
+        self._set_output_actions(False)
         self.result_tables = []
         self.results.clear()
         self.result_stack.setCurrentWidget(self.results)
@@ -179,6 +238,11 @@ class MainWindow(QMainWindow):
         if not servers:
             QMessageBox.warning(self, "DNS servers", "Select at least one DNS server.")
             return
+        self._start_lookup(domain, record_type, servers)
+
+    def _start_lookup(self, domain, record_type, servers):
+        if self._lookup_running:
+            return
         from .dns_worker import prepare_query
         name, kind = prepare_query(domain, record_type)
         self.record_combo.setCurrentText(kind)
@@ -187,6 +251,7 @@ class MainWindow(QMainWindow):
         self.results.setPlainText(f"Querying {domain} ({kind}) as {name}...")
         self._lookup_running = True
         self.run_button.setEnabled(False)
+        self.rerun_button.setEnabled(False)
         self.worker = DNSLookupThread(domain, kind, servers)
         self.worker.completed.connect(self._display_result)
         self.worker.finished.connect(self._lookup_finished)
@@ -195,6 +260,7 @@ class MainWindow(QMainWindow):
     def _lookup_finished(self):
         self._lookup_running = False
         self.run_button.setEnabled(True)
+        self.rerun_button.setEnabled(True)
 
     def _wait_for_lookup(self):
         if self._lookup_running:
@@ -202,14 +268,10 @@ class MainWindow(QMainWindow):
 
     def _display_result(self, lookup):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        lines = [timestamp, f"Query: {lookup['query']}", lookup['comparison']]
-        for result in lookup['results']:
-            lines.append(f"{result['requested_server']} — {result['server']} ({result['elapsed_ms']} ms)")
-            lines.append(result['error'] or '\n'.join(
-                f"{r['name']} {r['ttl']} {r['type']} {r['value']}" for r in result['records']))
-        full_result = '\n'.join(lines)
+        lookup['timestamp'] = timestamp
+        full_result = format_text(lookup)
         self._render_lookup(lookup)
-        self.cfg.setdefault("history", []).append(dict(query=lookup['query'], result=full_result, lookup=lookup))
+        self.cfg.setdefault("history", []).append(dict(query=lookup['query'], timestamp=timestamp, result=full_result, lookup=lookup))
         save_config(self.cfg)
         self._refresh_history_view()
 
@@ -258,30 +320,110 @@ class MainWindow(QMainWindow):
         scroll.setWidget(splitter)
         self.structured_layout.addWidget(scroll)
         self.result_stack.setCurrentWidget(self.structured_results)
+        self.current_lookup = lookup
+        self._set_output_actions(True)
 
     def _refresh_history_view(self):
         self.history_list.clear()
-        for entry in reversed(self.cfg.get("history", [])):
+        history = self.cfg.get("history", [])
+        for index in reversed(range(len(history))):
+            entry = history[index]
+            if not history_matches(entry, self.history_search.text().strip(),
+                    self.history_server_filter.text().strip(),
+                    '' if self.history_type_filter.currentIndex() == 0 else self.history_type_filter.currentText(),
+                    self.history_from.date().toString('yyyy-MM-dd') if self.history_date_filter.isChecked() else '',
+                    self.history_to.date().toString('yyyy-MM-dd') if self.history_date_filter.isChecked() else ''):
+                continue
             first_line = entry["result"].split("\n", 1)[0]
             item = QListWidgetItem(f"{first_line} — {entry['query']}")
+            item.setData(Qt.ItemDataRole.UserRole, index)
             self.history_list.addItem(item)
+        self.history_count.setText(f"{self.history_list.count()} of {len(history)} saved lookups")
+
+    def _reset_history_filters(self):
+        self.history_search.clear()
+        self.history_server_filter.clear()
+        self.history_type_filter.setCurrentIndex(0)
+        self.history_date_filter.setChecked(False)
+
+    def _selected_history(self):
+        item = self.history_list.currentItem()
+        if item is None:
+            return None
+        index = item.data(Qt.ItemDataRole.UserRole)
+        history = self.cfg.get('history', [])
+        return history[index] if isinstance(index, int) and 0 <= index < len(history) else None
 
     def _open_selected_history(self):
-        item = self.history_list.currentItem()
-        if not item:
+        selected = self._selected_history()
+        if selected is None:
             return
-        idx = self.history_list.row(item)
-        history = self.cfg.get("history", [])
-        if not history:
-            return
-        original_index = len(history) - 1 - idx
-        selected = history[original_index]
         if 'lookup' in selected:
             self._render_lookup(selected['lookup'])
         else:
             self._clear_results()
             self.results.setPlainText(selected["result"])
+            self._set_output_actions(bool(selected['result']))
         self.tabs.setCurrentWidget(self.lookup_tab)
+
+    def _rerun_selected_history(self):
+        selected = self._selected_history()
+        if selected is None or self._lookup_running:
+            return
+        self.domain_input.setText(selected['query'])
+        lookup = selected.get('lookup')
+        if lookup and lookup.get('results'):
+            results = lookup['results']
+            kind = results[0]['record_type']
+            servers = list(dict.fromkeys(None if r['requested_server'] == 'System default'
+                                        else r['requested_server'] for r in results))
+            for server in servers:
+                if server is not None and server not in self.cfg.get('dns_servers', []):
+                    self.cfg.setdefault('dns_servers', []).append(server)
+            self.cfg['selected_dns_servers'] = servers
+            self._reload_compare_servers()
+            self._start_lookup(selected['query'], kind, servers)
+        else:
+            # Text-only history has no resolver/type metadata: use visible controls.
+            self._run_lookup()
+
+    def _set_output_actions(self, enabled):
+        for widget in (self.copy_selected_button, self.copy_all_button, self.export_button):
+            widget.setEnabled(enabled)
+
+    def _copy_all(self):
+        QApplication.clipboard().setText(export_result(self.current_lookup, self.results.toPlainText(), 'txt'))
+
+    def _copy_selected(self):
+        if self.current_lookup is None:
+            text = self.results.textCursor().selectedText().replace('\u2029', '\n')
+        else:
+            lines = []
+            for result, table in zip(self.current_lookup['results'], self.result_tables):
+                for row in sorted(index.row() for index in table.selectionModel().selectedRows()):
+                    record = result['records'][row]
+                    lines.append('\t'.join(str(v) for v in (result['server'], record['name'],
+                                 record['type'], record['value'], record['ttl'])))
+            text = '\n'.join(lines)
+            if text:
+                text = 'Server\tName\tType\tValue\tTTL (s)\n' + text
+        if text:
+            QApplication.clipboard().setText(text)
+        else:
+            QMessageBox.information(self, "Copy Selected", "Select result rows or text to copy.")
+
+    def _export_results(self, kind):
+        path, _ = QFileDialog.getSaveFileName(self, "Export results", f"TrayNSLookup-results.{kind}",
+                                             f"{kind.upper()} files (*.{kind})")
+        if not path:
+            return
+        if not Path(path).suffix:
+            path += '.' + kind
+        try:
+            with open(path, 'w', encoding='utf-8', newline='') as output:
+                output.write(export_result(self.current_lookup, self.results.toPlainText(), kind))
+        except OSError as exc:
+            QMessageBox.warning(self, "Export failed", str(exc))
 
     def _clear_history(self):
         if QMessageBox.question(self, "Clear History", "Delete all saved results?") == QMessageBox.StandardButton.Yes:

@@ -58,3 +58,36 @@ use one of the same resolvers you selected explicitly.
 
 New history entries restore these structured panels, including comparisons.
 Older saved results continue to open as text. Clear Results preserves history.
+
+## Additional record types
+
+The Record Type menu includes SOA, SRV, CAA, and HTTPS alongside the existing
+record types. Enter the full service name for SRV (for example,
+`_ldap._tcp.example.com`). HTTPS is a DNS record type; choosing it does not change
+the DNS query transport to HTTPS. Values are shown in standard DNS text form.
+
+## Copy and export
+
+Use Copy Selected to copy selected table rows (including the responding server),
+or selected text from an older history entry. Ctrl/Cmd-click or Shift-click can
+select multiple rows. Copy All copies the complete displayed query, including all
+servers and errors. Export saves the complete displayed result as text, CSV, or
+JSON; it does not export the entire history. CSV has one row per record and keeps
+failed-server errors as rows. JSON preserves the complete structured query.
+Older text-only results are preserved as a single result field in CSV/JSON.
+
+## Search and rerun history
+
+In History, type a domain or IP fragment, filter by requested/responding DNS
+server, choose a query type, or enable Date range. Dates include both endpoints.
+Filters combine, and the count shows how many saved lookups match. Reset Filters
+shows everything again. Entries without date/type/server metadata are excluded
+when the corresponding filter is enabled; older timestamps are read from text
+where available.
+
+View Result opens the selected saved result. Run Again restores a structured
+query's original record type and resolvers, including resolvers removed since the
+query was saved, and updates the server selector. A legacy text-only entry uses
+the current type and selected servers because its original metadata is unavailable.
+Clear History still deletes all saved entries after confirmation, including entries
+hidden by filters. Clearing the displayed results does not delete history.
