@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=TrayNSLookup
+Comment=DNS lookup utility with system tray integration
+Exec=TrayNSLookup
+Icon=TrayNSLookup
+Terminal=false
+Categories=Network;Utility;
+StartupNotify=false

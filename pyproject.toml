@@ -25,4 +25,4 @@ version = {attr = "traynslookup.version.__version__"}
 include = ["traynslookup*"]
 
 [tool.setuptools.package-data]
-traynslookup = ["assets/*.ico"]
+traynslookup = ["assets/*.ico", "assets/*.png", "assets/*.desktop"]
