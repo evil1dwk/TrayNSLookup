@@ -1,5 +1,2 @@
-PyQt6>=6.6
-dnspython>=2.6
-pyinstaller>=6.3
-setuptools>=69.0
-wheel>=0.42
+# Compatibility installer; dependencies are defined in pyproject.toml.
+-e .[build]
