@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QMessageBox, QStyle
 )
 from datetime import datetime
+from .dialogs import AboutDialog
 from .dns_worker import DNSLookupThread
 from .config import save_config, get_app_icon, get_gear_icon
 
@@ -20,23 +21,29 @@ class MainWindow(QMainWindow):
         self.resize(760, 540)
         self._restore_window_geometry()
 
-        # Tabs container
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+        self._build_query_controls(layout)
+
         self.tabs = QTabWidget()
-        self.setCentralWidget(self.tabs)
-
+        layout.addWidget(self.tabs)
         self.lookup_tab = QWidget()
-        self.tabs.addTab(self.lookup_tab, "Lookup")
-        self._build_lookup_tab()
-
+        self.tabs.addTab(self.lookup_tab, "Results")
+        self._build_results_tab()
         self.history_tab = QWidget()
         self.tabs.addTab(self.history_tab, "History")
         self._build_history_tab()
-
         self._refresh_history_view()
 
-    def _build_lookup_tab(self):
-        layout = QVBoxLayout(self.lookup_tab)
+        footer = QHBoxLayout()
+        self.about_button = QPushButton("About")
+        self.about_button.clicked.connect(self._show_about)
+        footer.addWidget(self.about_button)
+        footer.addStretch()
+        layout.addLayout(footer)
 
+    def _build_query_controls(self, layout):
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Domain:"))
         self.domain_input = QLineEdit()
@@ -69,11 +76,25 @@ class MainWindow(QMainWindow):
         row2.addStretch()
         layout.addLayout(row2)
 
-        # Results panel
+    def _show_about(self):
+        if not hasattr(self, "_about_dialog"):
+            self._about_dialog = AboutDialog(self)
+        self._about_dialog.show()
+        self._about_dialog.raise_()
+        self._about_dialog.activateWindow()
+
+    def _build_results_tab(self):
+        layout = QVBoxLayout(self.lookup_tab)
         self.results = QPlainTextEdit()
         self.results.setReadOnly(True)
         self.results.setPlaceholderText("Results will appear here...")
         layout.addWidget(self.results)
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        self.clear_results_button = QPushButton("Clear Results")
+        self.clear_results_button.clicked.connect(self.results.clear)
+        buttons.addWidget(self.clear_results_button)
+        layout.addLayout(buttons)
 
     def _build_history_tab(self):
         layout = QVBoxLayout(self.history_tab)
@@ -104,6 +125,7 @@ class MainWindow(QMainWindow):
         server_text = self.server_combo.currentText()
         server = None if server_text == "(system default)" else server_text
 
+        self.tabs.setCurrentWidget(self.lookup_tab)
         self.results.clear()
         self.results.appendPlainText(f"Querying {domain} ({record_type}) via {server or 'system default'}...\n")
 
