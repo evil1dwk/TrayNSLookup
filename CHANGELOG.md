@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [1.4.0] — proposed
+## [1.4.0] — 2026-10-25
 
 - Name DNS servers while preserving existing address-based settings and selections.
 - Highlight records that differ between resolvers with explicit status labels.
@@ -11,7 +11,7 @@
 - Preserve the original history entry and save each new comparison separately.
 - Include names and comparison changes in copy/export output and history search.
 
-## [1.3.0] — proposed
+## [1.3.0] — 2026-10-25
 
 - Add SOA, SRV, CAA, and HTTPS record types.
 - Copy selected records or complete results and export text, CSV, or JSON.
