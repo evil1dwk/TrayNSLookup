@@ -161,3 +161,59 @@ class MainWindowTests(unittest.TestCase):
                 action.setChecked(action.data() in selected)
             self.app.processEvents()
             self.assertEqual(self.window.choose_servers_button.width(), width)
+
+    def test_filtered_history_views_and_reruns_correct_entry(self):
+        from test_result_tools import fixture
+        lookup = fixture()
+        self.cfg['history'].append(dict(query='other.example', result='2026-10-25\nother', lookup={**lookup, 'query':'other.example'}))
+        self.window._refresh_history_view()
+        self.window.history_search.setText('example.com')
+        self.assertEqual(self.window.history_list.count(), 1)
+        self.window.history_list.setCurrentRow(0)
+        self.window.view_button.click()
+        self.assertEqual(self.window.results.toPlainText(), 'saved result')
+        self.window.history_search.setText('other')
+        self.window.history_list.setCurrentRow(0)
+        with patch('traynslookup.ui_mainwindow.DNSLookupThread') as worker:
+            self.window.rerun_button.click()
+            worker.assert_called_once_with('other.example', 'TXT', ['1.1.1.1', '8.8.8.8'])
+        self.assertEqual(self.cfg['selected_dns_servers'], ['1.1.1.1', '8.8.8.8'])
+
+    def test_copy_selected_all_and_export(self):
+        from test_result_tools import fixture
+        import json
+        import tempfile
+        from pathlib import Path
+        lookup = fixture()
+        self.window._render_lookup(lookup)
+        self.window.result_tables[0].selectRow(0)
+        self.window.copy_selected_button.click()
+        text = QApplication.clipboard().text()
+        self.assertIn('hello, world', text)
+        self.assertNotIn('Timeout', text)
+        self.window.copy_all_button.click()
+        self.assertIn('Timeout', QApplication.clipboard().text())
+        with tempfile.TemporaryDirectory() as folder:
+            target = str(Path(folder) / 'export')
+            with patch('traynslookup.ui_mainwindow.QFileDialog.getSaveFileName', return_value=(target, '')):
+                self.window._export_results('json')
+            self.assertEqual(json.loads(Path(target + '.json').read_text()), lookup)
+        self.window.clear_results_button.click()
+        self.assertFalse(self.window.export_button.isEnabled())
+
+    def test_history_type_server_date_filters_and_reset(self):
+        from test_result_tools import fixture
+        from PyQt6.QtCore import QDate
+        lookup = fixture()
+        self.cfg['history'].append(dict(query='example.com', result='2026-10-25', lookup=lookup))
+        self.window._refresh_history_view()
+        self.window.history_server_filter.setText('1.1.1.1')
+        self.window.history_type_filter.setCurrentText('TXT')
+        self.window.history_from.setDate(QDate(2026, 10, 25))
+        self.window.history_to.setDate(QDate(2026, 10, 25))
+        self.window.history_date_filter.setChecked(True)
+        self.assertEqual(self.window.history_list.count(), 1)
+        self.window.history_to.setDate(QDate(2026, 10, 24))
+        self.assertEqual(self.window.history_list.count(), 0)
+        self.window.history_reset_button.click()
+        self.assertEqual(self.window.history_list.count(), 2)

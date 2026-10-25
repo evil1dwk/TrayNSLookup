@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.3.0] — proposed
+
+- Add SOA, SRV, CAA, and HTTPS record types.
+- Copy selected records or complete results and export text, CSV, or JSON.
+- Search history by domain/IP, resolver, query type, and inclusive date range.
+- Rerun saved structured queries with their original type and resolvers;
+  keep legacy text history readable and exportable.
+
 ## [1.2.0] — 2026-10-25
 
 - Automatically convert IPv4 and IPv6 input into PTR reverse lookups.
