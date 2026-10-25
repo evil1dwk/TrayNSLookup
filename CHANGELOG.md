@@ -14,7 +14,7 @@
   text-only history entries.
 - Prevent overlapping runs and wait for active DNS work when quitting.
 
-## [1.1.0] — proposed
+## [1.1.0] — 2026-10-24
 
 - Add an About button with version, creator credit, repository and issue links.
 
