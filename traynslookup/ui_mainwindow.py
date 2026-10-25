@@ -36,6 +36,13 @@ class MainWindow(QMainWindow):
         self._build_history_tab()
         self._refresh_history_view()
 
+        footer = QHBoxLayout()
+        self.about_button = QPushButton("About")
+        self.about_button.clicked.connect(self._show_about)
+        footer.addWidget(self.about_button)
+        footer.addStretch()
+        layout.addLayout(footer)
+
     def _build_query_controls(self, layout):
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Domain:"))
@@ -67,9 +74,6 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.edit_servers_button)
 
         row2.addStretch()
-        self.about_button = QPushButton("About")
-        self.about_button.clicked.connect(self._show_about)
-        row2.addWidget(self.about_button)
         layout.addLayout(row2)
 
     def _show_about(self):
